@@ -21,11 +21,13 @@ Script return logger object with atrributes setted in command line.
 
 Object have method .Write("string") or .Write("string","error_level")
 error_level can be:
-    INFO
-    WARNING
-    DEBUG
-    ERROR
-    FATAL
+<ul>
+    <li>INFO</li>
+    <li>WARNING</li>
+    <li>DEBUG</li>
+    <li>ERROR</li>
+    <li>FATAL</li>
+</ul>
 By default, or if .Write() don't understand error level setting to INFO
 
 .EXAMPLE
