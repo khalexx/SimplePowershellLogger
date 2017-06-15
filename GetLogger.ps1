@@ -57,33 +57,6 @@ param(
 
 $scriptPath=Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 
-function getLogFile($LogFilePath) {
-    function createFile($newFilePath) {
-        $file = New-Item $newFilePath -ItemType File -Force
-        return $file
-    }
-
-    if ($LogFilePath -eq "") {
-        $logFileName=(get-date -f yyyyMMdd)+".log"
-        $relativeLogFilename="log\"+$logFileName
-        $logFilePath=Join-Path $scriptPath $relativeLogFilename
-        Write-Host $logFilePath
-        return createFile($logFilePath)
-    }
-
-    if (Test-Path $LogFilePath -PathType Leaf) {
-        return (Get-Item $LogFilePath)
-    } elseif (Test-Path $LogFilePath -PathType Container) {
-        $logFileName=(get-date -f yyyyMMdd)+".log"
-        $LogPath=Join-Path $LogFilePath $logFileName
-        return createFile($LogPath)
-    } elseif ((Test-Path $LogFilePath -isValid) -and -not (Test-Path $LogFilePath)) {
-        return createFile($LogFilePath)
-    } else {
-        throw "Something go wrong with path"
-    }
-    
-}
 
 enum ErrorLevel {
     INFO
@@ -103,7 +76,46 @@ $errlvlHash=@{
 
 $logger=[PSCustomObject]@{
     "LogFile"=""
+    "LogPath"=$LogPath
     "ErrorLevels"=$errlvlHash
+    "ScriptPath"=$ScriptPath
+}
+
+Add-Member -memberType ScriptMethod -InputObject $logger -Name getLogFile -Value {
+    $LogFilePath = $this.LogPath
+
+    function createFile($newFilePath) {
+        $file = New-Item $newFilePath -ItemType File -Force
+        return $file
+    }
+
+    if ($LogFilePath -eq "") {
+        $logFileName=(get-date -f yyyyMMdd)+".log"
+        $relativeLogFilename="log\"+$logFileName
+        $logFilePath=Join-Path $this.ScriptPath $relativeLogFilename
+        if (Test-Path $logFilePath) {
+            return Get-Item $logFilePath
+        } else {
+            return createFile($logFilePath)
+        }
+    }
+
+    if (Test-Path $LogFilePath -PathType Leaf) {
+        return (Get-Item $LogFilePath)
+    } elseif (Test-Path $LogFilePath -PathType Container) {
+        $logFileName=(get-date -f yyyyMMdd)+".log"
+        $LogPath=Join-Path $LogFilePath $logFileName
+        if (Test-Path $LogPath) {
+            return Get-Item $LogPath
+        } else {
+            return createFile($LogPath)
+        }
+    } elseif ((Test-Path $LogFilePath -isValid) -and -not (Test-Path $LogFilePath)) {
+        return createFile($LogFilePath)
+    } else {
+        throw "Something go wrong with path"
+    }
+    
 }
 
 Add-Member -memberType ScriptMethod -InputObject $logger -Name GetEventString -Value {
@@ -125,16 +137,16 @@ if ($OnlyScreen) {
         Write-Host $this.GetEventString($eventLogged,$errlvl)
     }
 } elseif ($Screen) {
-    $logger.LogFile = getLogFile($LogPath)
     Add-Member -memberType ScriptMethod -InputObject $logger -Name Write -Value {
             param ([Parameter(Mandatory=$true)][string]$eventLogged,[string]$errlvl="INFO")
+            $logger.LogFile = $this.getLogFile()
             Write-Host $this.GetEventString($eventLogged,$errlvl)
             Add-Content $this.LogFile $this.GetEventString($eventLogged,$errlvl) -Force
     }    
 } else {
-    $logger.LogFile = getLogFile($LogPath)
     Add-Member -memberType ScriptMethod -InputObject $logger -Name Write -Value {
             param ([Parameter(Mandatory=$true)][string]$eventLogged,[string]$errlvl="INFO")
+            $logger.LogFile = $this.getLogFile()
             Add-Content $this.LogFile $this.GetEventString($eventLogged,$errlvl) -Force
     }
 }
